@@ -1,0 +1,10 @@
+---
+# tasks file for motd
+- name: copy motd file
+  template:
+     src: motd.j2
+     dest: /etc/motd
+     owner: "{{ ansible_user_uid | string }}"
+     group: "{{ ansible_user_gid | string }}"
+     mode: "0444"
+

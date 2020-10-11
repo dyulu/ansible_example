@@ -1,0 +1,18 @@
+---
+
+# dict variable
+group_users_dict:
+  Jane:
+    user_name: jane
+    user_home: /home/jane
+    user_state: present
+  Doe:
+    user_name: doe
+    user_home: /home/doe
+    user_state: absent
+# List variable
+group_users_list1:
+  - jerry
+  - joe
+  - john
+group_users_list2: [jerry, joe, john]

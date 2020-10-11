@@ -1,0 +1,9 @@
+---
+
+# ansible-playbook ansible_roles.yaml -i ansible_inventory.ini --extra-vars "ansible_password=${PASSWORD}"
+- name: use motd role playbook
+  hosts: Host_Group_2
+
+  roles:
+    - role: motd
+

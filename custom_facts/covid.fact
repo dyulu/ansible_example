@@ -1,0 +1,7 @@
+[us]
+cases = 6000000
+death = 180000
+
+[kansas]
+cases = 42612
+death = 446

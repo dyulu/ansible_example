@@ -1,0 +1,85 @@
+---
+
+# read -r PASSWORD
+# ansible-playbook ansible_default_facts.yaml -i ansible_inventory.ini --extra-vars "ansible_password=${PASSWORD}"
+# ansible-playbook ansible_default_facts.yaml -i ansible_inventory.yaml --extra-vars "ansible_password=${PASSWORD}"
+# To get a list of ansible variables: ansible -m setup <hostname>
+- name: Ansible Variables from default facts
+  hosts: Host_Group_1
+
+  tasks:
+    - debug:
+        msg: "{{ ansible_facts }}"
+
+    # Displaying variable data types: unsafe AnsibleUnsafeText, dict, list, AnsibleUndefined
+    - debug:
+        msg: 
+          - "Data type of ansible_hostname:           {{ ansible_hostname | type_debug }}"
+          - "Data type of ansible_processor:          {{ ansible_processor | type_debug }}"
+          - "Data type of ansible_memory_mb:          {{ ansible_memory_mb | type_debug }}"
+          - "Data type of ansible_interfaces:         {{ ansible_interfaces | type_debug }}"
+          - "Data type of ansible_all_ipv4_addresses: {{ ansible_all_ipv4_addresses | type_debug }}"
+          - "Data type of ansible_bios_version:       {{ ansible_bios_version | type_debug }}"
+          - "Data type of ansible_cmdline:            {{ ansible_cmdline | type_debug }}"
+          - "Data type of ansible_devices:            {{ ansible_devices | type_debug }}"
+          - "Data type of ansible_env:                {{ ansible_env | type_debug }}"
+          - "Data type of ansible_distribution:       {{ ansible_distribution | type_debug }}"
+          - "Data type of ansible_kernel:             {{ ansible_kernel | type_debug }}"
+          - "Data type of ansible_architecture:       {{ ansible_architecture | type_debug }}"
+          - "Data type of ansible_apparmor:           {{ ansible_apparmor | type_debug }}"
+          - "Data type of ansible_mounts:             {{ ansible_mounts | type_debug }}"
+
+       # "Data type of ansible_hostname:           AnsibleUnsafeText",
+       # "Data type of ansible_processor:          list",
+       # "Data type of ansible_memory_mb:          dict",
+       # "Data type of ansible_interfaces:         list",
+       # "Data type of ansible_all_ipv4_addresses: list",
+       # "Data type of ansible_bios_version:       AnsibleUnsafeText",
+       # "Data type of ansible_cmdline:            dict",
+       # "Data type of ansible_devices:            dict",
+       # "Data type of ansible_env:                dict",
+       # "Data type of ansible_distribution:       AnsibleUnsafeText",
+       # "Data type of ansible_kernel:             AnsibleUnsafeText",
+       # "Data type of ansible_architecture:       AnsibleUnsafeText",
+       # "Data type of ansible_apparmor:           dict",
+       # "Data type of ansible_mounts:             list"
+
+    # Printing the value of AnsibleUnSafeText
+    - debug:
+        msg:
+          - "ansible_hostname: {{ ansible_hostname }}"
+          - "ansible_fqdn:     {{ ansible_fqdn }}"
+
+    # Printing dictionary and accessing an element of dictionary
+    - debug:
+        msg:
+          - "ansible_memory_mb:                  {{ ansible_memory_mb }}"
+          - "ansible_memory_mb.real.total:       {{ ansible_memory_mb.real.total }}"
+          - "ansible_memory_mb['real']['total']: {{ ansible_memory_mb['real']['total'] }}"
+
+    # Printing and accessing the list
+    - debug:
+        msg:
+          - "ansible_interfaces:            {{ ansible_interfaces }}"
+          - "ansible_all_ipv4_addresses:    {{ ansible_all_ipv4_addresses }}"
+          - "ansible_all_ipv4_addresses[0]: {{ ansible_all_ipv4_addresses[0] }}"
+
+    # Parsing through variable dictionary
+    - debug:
+        msg: "Mount Point {{ item.mount }} is at {{ item.block_used / item.block_total * 100 }} percent"
+      loop: "{{ ansible_mounts }}"
+
+    # Execute Host based task using variable
+    - name: Execute the command only on myhost server
+      become: yes
+      become_user: root
+      shell: "uname -a"
+      when: "ansible_hostname == 'myhost'"
+      register: uname_a
+
+    - debug:
+        msg:
+          - "{{ uname_a.stdout }}"
+          - "{{ uname_a }}"
+      when: "uname_a.changed == true"
+

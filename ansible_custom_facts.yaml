@@ -1,0 +1,63 @@
+---
+
+# read -r PASSWORD
+# ansible-playbook ansible_custom_facts.yaml -i ansible_inventory.ini --extra-vars "ansible_password=$PASSWORD"
+# ansible-playbook ansible_custom_facts.yaml -i ansible_inventory.yaml --extra-vars "ansible_password=$PASSWORD"
+#
+- name: Ansible variables from custom facts
+  hosts: Host_Group_2
+  tasks:
+
+   - name: "Make sure custom fact directory exist on hosts"
+     file:
+       path: /etc/ansible/facts.d
+       state: directory
+
+   - name: "Copy custom fact files to hosts"
+     copy:
+       src: "{{ item.src }}"
+       dest: /etc/ansible/facts.d/
+       mode: "{{ item.mode }}"
+     with_items:
+         - { src: custom_facts/memory_usage.fact, mode: 755  }
+         - { src: custom_facts/covid.fact, mode: 644 }
+
+   #- name: "Make sure psutil Python package exists on host"
+   #  pip:
+   #    name: psutil
+   #    extra_args: --user
+   #    state: latest
+
+   # Facts are loaded by the setup module, which only runs at the start of a playbook.
+   # Re-run setup here so custom facts installed above can be used.
+   - name: "Re-run setup to use custom facts"
+     setup: ~
+
+   # There are two types of custom facts: data and code. Data is just read from a file, and
+   # code is executed and it’s output is accepted as data.
+   # Both facts lives in /etc/ansible/facts.d/ directory on the target machine, both have
+   # extension of .fact. If this file have execution permission, it’s a code, if it’s not
+   # have execution permission, it’s data.
+   # For both output of the code and for the content of the data fact, format is the same: a json.
+   # It will be stored under key with fact name (file name before ‘.fact’) in ansible_local after
+   # fact gathering.
+   #
+   # Error in fact gathering does not breaks your program in any way. If your program just dies
+   # with segfault or exit with error code, content of the fact would be either ‘error…’, or just
+   # an empty dictionary.
+
+   # /etc/ansible/facts.d/memory_usage.fact is a code to generate output in json format.
+   - name: Get memory usage facts
+     debug:
+       msg:
+         - "The memory usage fact:  {{ ansible_local.memory_usage }}"
+         - "The memory usage fault: {{ ansible_local.memory_usage.memUsageFault }}"
+         - "The memory usage fault: {{ ansible_local.memory_usage['memUsageFault'] }}"
+
+  # /etc/ansible/facts.d/covid.fact is data facts.
+   - name: Get covid facts
+     debug:
+       msg:
+         - "US covid fact:      {{ ansible_local.covid.us }}"
+         - "Kansas covid facts: {{ ansible_local.covid.kansas }}"
+         - "Kansas covid death: {{ ansible_local.covid.kansas.death }}"

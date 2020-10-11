@@ -1,0 +1,46 @@
+---
+
+# read -r PASSWORD
+# Run on Host_Group_2 will succeed since variables are defined in group_vars/Host_Group_2:
+# ansible-playbook ansible_group_vars.yaml -i ansible_inventory.ini --extra-vars "ansible_password=$PASSWORD" --limit Host_Group_2
+# Run on Host_Group_1 will fail since no group_vars/Host_Group_1 exists:
+# ansible-playbook ansible_group_vars.yaml -i ansible_inventory.ini --extra-vars "ansible_password=$PASSWORD" --limit Host_Group_1
+- name: Use of variables
+  hosts: all
+
+  tasks:
+    - name: Make sure users present/absent
+      user:
+        name: "{{ item.value.user_name }}"
+        home: "{{ item.value.user_home }}"
+        state: "{{ item.value.user_state }}"
+      loop: "{{ lookup('dict', group_users_dict) }}"
+
+    - name: List users
+      shell: "cat /etc/passwd | cut -d: -f1"
+      register: all_users
+
+    - debug:
+        msg:
+          - All users: "{{ all_users }}"
+
+    - name: Remove users created
+      user:
+        name: "{{ item.value.user_name }}"
+        remove: yes
+        state: absent
+      loop: "{{ lookup('dict', group_users_dict) }}"
+      when: item.value.user_state == "present"
+
+    - name: Create users in the list
+      user:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ group_users_list1 }}"
+
+    - name: Delete users in the list
+      user:
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ group_users_list2 }}"
+

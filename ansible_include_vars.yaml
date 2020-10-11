@@ -1,0 +1,72 @@
+---
+
+# encrypted_vars.yaml contains the variable ansible_password, but the file is encrypted with:
+#     ansible-vault encrypt encrypted_vars.yaml
+# ansible-playbook ansible_include_vars.yaml -i ansible_inventory.ini --ask-vault-pass --limit Host_Group_2
+- name: Use of variables
+  hosts: all
+  vars_files:
+    - vars/play_vars.yaml
+    - vars/encrypted_vars.yaml
+
+  tasks:
+    # This also works: - include_vars: vars/play_vars.yaml
+    # This also works: - include_vars: play_vars.yaml
+
+    - name: Make sure users present/absent
+      user:
+        name: "{{ item.value.user_name }}"
+        home: "{{ item.value.user_home }}"
+        state: "{{ item.value.user_state }}"
+      loop: "{{ lookup('dict', play_users_dict) }}"
+
+    - name: Remove users created
+      user:
+        name: "{{ item.value.user_name }}"
+        remove: yes
+        state: absent
+      loop: "{{ lookup('dict', play_users_dict) }}"
+      when: item.value.user_state == "present"
+
+    - name: Use of block and block error handling
+      block:
+        - name: Create users in the list
+          user:
+            name: "{{ item }}"
+            state: present
+          loop: "{{ play_users_list1 }}"
+
+        - debug:
+            msg: Successfully created users {{ play_users_list1 }}
+      rescue:
+        - debug:
+            msg: Failed to create users {{ play_users_list1 }}
+
+        - name: Reboot the system
+          reboot:
+      always:
+        - name: List users
+          shell: "cat /etc/passwd | cut -d: -f1"
+          register: all_users
+
+        - debug:
+            msg:
+            - All users: "{{ all_users }}"
+
+    - name: Delete users in the list
+      user:
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ play_users_list2 }}"
+
+    - name: Magic variables
+      debug:
+        msg:
+          - "{{ hostvars[item] }}"
+      loop: "{{ groups['Host_Group_1'] }}"
+
+    - name: Use of jinja2 template
+      template:
+        src: motd.j2
+        dest: /etc/motd
+

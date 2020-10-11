@@ -1,0 +1,44 @@
+---
+
+# read -r PASSWORD
+# Run on 10.194.1.1 will succeed since variables are defined in host_vars/10.194.1.1:
+# ansible-playbook ansible_host_vars.yaml -i ansible_inventory.ini --extra-vars "ansible_password=$PASSWORD" --limit 10.194.1.1
+- name: Use of variables
+  hosts: all
+
+  tasks:
+    - name: Make sure users present/absent
+      user:
+        name: "{{ item.value.user_name }}"
+        home: "{{ item.value.user_home }}"
+        state: "{{ item.value.user_state }}"
+      loop: "{{ lookup('dict', host_users_dict) }}"
+
+    - name: List users
+      shell: "cat /etc/passwd | cut -d: -f1"
+      register: all_users
+
+    - debug:
+        msg:
+          - All users: "{{ all_users }}"
+
+    - name: Remove users created
+      user:
+        name: "{{ item.value.user_name }}"
+        remove: yes
+        state: absent
+      loop: "{{ lookup('dict', host_users_dict) }}"
+      when: item.value.user_state == "present"
+
+    - name: Create users in the list
+      user:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ host_users_list1 }}"
+
+    - name: Delete users in the list
+      user:
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ host_users_list2 }}"
+

@@ -1,0 +1,17 @@
+#! /usr/bin/python3
+# This file is in /etc/ansible/facts.d/ on target hosts.
+
+import json
+import psutil
+
+MEM_USAGE_THRESHOLD = 80
+
+def getMemUsage():
+    mem_usage = {}
+    mem_usage['memUsage'] = psutil.virtual_memory().percent
+    mem_usage['memUsageThreshold'] = MEM_USAGE_THRESHOLD
+    mem_usage['memUsageFault'] = psutil.virtual_memory().percent >= mem_usage['memUsageThreshold']
+    return json.dumps(mem_usage)
+
+print(getMemUsage())
+
