@@ -1,0 +1,46 @@
+$ ansible-doc -h
+usage: ansible-doc [-h] [--version] [-v] [-M MODULE_PATH]
+                   [--playbook-dir BASEDIR]
+                   [-t {become,cache,callback,cliconf,connection,httpapi,inventory,lookup,netconf,shell,vars,module,strategy}]
+                   [-j] [-F | -l | -s | --metadata-dump]
+                   [plugin [plugin ...]]
+
+plugin documentation tool
+
+positional arguments:
+  plugin                Plugin
+
+optional arguments:
+  --metadata-dump       **For internal testing only** Dump json metadata for
+                        all plugins.
+  --playbook-dir BASEDIR
+                        Since this tool does not use playbooks, use this as a
+                        substitute playbook directory.This sets the relative
+                        path for many features including roles/ group_vars/
+                        etc.
+  --version             show program's version number, config file location,
+                        configured module search path, module location,
+                        executable location and exit
+  -F, --list_files      Show plugin names and their source files without
+                        summaries (implies --list). A supplied argument will
+                        be used for filtering, can be a namespace or full
+                        collection name.
+  -M MODULE_PATH, --module-path MODULE_PATH
+                        prepend colon-separated path(s) to module library (def
+                        ault=~/.ansible/plugins/modules:/usr/share/ansible/plu
+                        gins/modules)
+  -h, --help            show this help message and exit
+  -j, --json            Change output into json format.
+  -l, --list            List available plugins. A supplied argument will be
+                        used for filtering, can be a namespace or full
+                        collection name.
+  -s, --snippet         Show playbook snippet for specified plugin(s)
+  -t {become,cache,callback,cliconf,connection,httpapi,inventory,lookup,netconf,shell,vars,module,strategy}, --type {become,cache,callback,cliconf,connection,httpapi,inventory,lookup,netconf,shell,vars,module,strategy}
+                        Choose which plugin type (defaults to "module").
+                        Available plugin types are : ('become', 'cache',
+                        'callback', 'cliconf', 'connection', 'httpapi',
+                        'inventory', 'lookup', 'netconf', 'shell', 'vars',
+                        'module', 'strategy')
+  -v, --verbose         verbose mode (-vvv for more, -vvvv to enable
+                        connection debugging)
+

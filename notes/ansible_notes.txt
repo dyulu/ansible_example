@@ -1,0 +1,299 @@
+
+==== Asynchronous actions
+Run a process and check on it later
+Run multiple processes at once and checnk on them later
+Run processes and forget
+
+---
+# async: how long to run
+# poll: how frequently to check; default 10 seconds; 0: run and forget
+# async_status: check status of an async task
+- name: Run asynchronous commands in parallel and wait till completion
+  hosts: all
+  tasks:
+    - command: cmd01
+      async: 360
+      poll: 0
+      register: cmd01_result
+
+    - command: cmd02
+      async: 360
+      poll: 0
+      register: cmd02_result
+
+    - name: check status
+      async_status: cmd01ID = {{ cmd01_result.ansible_job_id }}
+      register: cmd01_job_result
+      until: cmd01_job_result.finished
+      retries: 30
+
+==== Strategy
+linear: default; up to the fork limit of hosts will execute each task at the same time, then the next series of hosts until the batch is done, before going on to the next task
+free: Ansible will not wait for other hosts to finish the current task before queuing more tasks for other hosts
+debug: task execution is ‘linear’ but controlled by an interactive debug session
+
+# Selecting a strategy
+- hosts: all
+  strategy: free
+
+# Setting the number of forks
+# ansible.cfg
+[defaults]
+forks = 30
+# ansible-playbook -f 30 my_playbook.yml
+
+# Setting the batch size with serial
+- name: execute the play completely (all tasks) on 2 of the hosts before moving on to the next 2 hosts
+  hosts: all
+  serial: 2
+
+# Restricting execution with throttle
+# Use throttle to restrict tasks that may be CPU-intensive or interact with a rate-limiting API
+# Limits the number of workers for a particular task
+# Can be set at the block and task level
+# throttle setting must be lower than your forks or serial setting
+tasks:
+- name: 
+  command: /path/to/cpu_intensive_command
+  throttle: 1
+
+# Ordering execution based on inventory
+order: controls the order in which hosts are run. Possible values for order are:
+inventory: (default) The order provided in the inventory
+reverse_inventory: The reverse of the order provided by the inventory
+sorted: Sorted alphabetically sorted by name
+reverse_sorted: Sorted by name in reverse alphabetical order
+shuffle: Randomly ordered on each run
+
+# Running on a single machine with run_once
+run_once: true; run a task only on the first host in each batch of hosts
+
+==== Error Handling
+By default, Ansible stops execution on a host if any task fails on that host, and it continues on other hosts.
+
+# Ignoring failed commands
+ignore_errors: yes
+
+# Ignoring unreachable host errors
+ignore_unreachable: yes
+
+# Handlers and failure
+If a task notifies a handler but another task fails later in the play, by default the handler does not run on that host.
+--force-handlers: command-line option
+force_handlers: True: in a play
+force_handlers = True: inansible.cfg.
+
+# Defining failure
+failed_when: conditions are joined with an implicit and; or has to be explicitly used
+
+# Defining “changed”
+changed_when: conditions are joined with an implicit and; or has to be explicitly used
+
+# Ensuring success for command and shell
+tasks:
+  - name: Run this command and ignore the result
+    ansible.builtin.shell: somecommand || /bin/true
+
+# Aborting a play on all hosts
+Want a failure on a single host, or failures on a certain percentage of hosts, to abort the entire play on all hosts
+any_errors_fatal: True: stop play execution after the first failure
+max_fail_percentage: abort the play after a given percentage of hosts has failed
+
+==== Templating - Jinja2 filters; not specific to Ansible
+https://docs.ansible.com/ansible/2.8/user_guide/playbooks_templating.html
+
+{{ mystring | upper }}                          # mystring = "mystring"; MYSTRING
+{{ mystring | lower }}                          # mystring = "mystring"; mystring
+{{ mystring | title }}                          # mystring = "mystring"; Mystring
+{{ mystring | replace("my","his") }}            # mystring = "mystring"; hisstring
+{{ mystring | default("anystring") }}           # 
+
+{{ [1, 2, 3] | min }}                           # 1
+{{ [1, 2, 3] | max }}                           # 3
+{{ [1, 2, 3, 2] | unique }}                     # 1, 2, 3
+{{ [1, 2, 3, 4] | union([4, 5]) }}              # 1, 2, 3, 4, 5
+{{ [1, 2, 3, 4] | intersect([4, 5]) }}          # 4
+{{ 100 | random }}                              # random number
+{{ ["Hello", "the", "world"] | join(" ") }}     # Hello the world
+
+{{ "/etc/hosts" | basename }}                   # hosts
+{{ "c:\win\hosts" | win_basename }}             # hosts
+{{ "c:\win\hosts" | win_splitdrive }}           # ["c:", "\win\hosts"]
+{{ "c:\win\hosts" | win_splitdrive | first }}   # "c:"
+{{ "c:\win\hosts" | win_splitdrive | last }}    # "\win\hosts\"
+
+==== Plugins: https://github.com/ansible/ansible/tree/devel/lib/ansible/plugins
+
+==== Custom filter plugin
+# Create a folder called ‘filter_plugins’ in the same location as your playbook
+# Or something like: export ANSIBLE_FILTER_PLUGINS=/filter_plugins
+
+$ cat filter_plugins/my_filters.py 
+#!/usr/bin/python3
+class FilterModule(object):
+    def filters(self):
+        return {
+            'filter00': self.filter00,
+            'filter01': self.filter01
+        }
+
+    def filter00(self, a_variable):
+        a_new_variable = a_variable + ' filter 0'
+        return a_new_variable
+
+    def filter01(self, a_variable):
+        a_new_variable = a_variable + ' filter 1'
+        return a_new_variable
+
+$ cat my_filter_playbook.yaml 
+---
+- hosts: localhost
+  tasks:
+    - name: Filter testing
+      debug:
+        msg:
+          - "{{ 'test' | filter00 }}"
+          - "{{ 'test' | filter01 }}"
+
+==== Custom callback pulgin
+Default: Skippy
+Mail, Hipchat, Jabber, Logstash, Slack, Timer
+
+==== Custom module
+https://docs.ansible.com/ansible/latest/dev_guide/developing_modules_general.html
+
+my_role/library/my_module.py    # from ansible.module_utils.basic import AnsibleModule
+my_role/tasks/main.yml
+my_role_test.yml
+
+$ cat my_role/library/my_module.py
+#!/usr/bin/python
+
+from ansible.module_utils.basic import AnsibleModule
+
+def main():
+    module = AnsibleModule(
+        argument_spec = dict(
+            name = dict(type='str', required=True),
+            new = dict(type='bool', required=False, default=False)
+        ),
+        supports_check_mode=True
+    )
+
+    result = dict(
+        changed=False,
+        original_message='',
+        message=''
+    )
+
+    if module.check_mode:
+        module.exit_json(**result)
+
+    result['original_message'] = module.params['name']
+    result['message'] = 'goodbye'
+
+    if module.params['new']:
+        result['changed'] = True
+
+    if module.params['name'] == 'fail me':
+        module.fail_json(msg='You requested this to fail', **result)
+
+    module.exit_json(**result)
+
+if __name__ == '__main__':
+    main()
+
+$ cat my_role/tasks/main.yml 
+---
+- name: run the new module
+  my_module:
+    parm1: 'hello'
+    parm2: true
+
+$ cat my_role_test.yml
+  roles:
+    - role: my_role
+
+==== Lookup: retrieve data from outside sources such as files, databases, key/value stores, APIs, and other services
+https://docs.ansible.com/ansible/latest/user_guide/playbooks_lookups.html
+
+# Lisst of plugins
+$ ansible-doc -l -t lookup
+amazon.aws.aws_account_attribute                  Look up AWS account attributes                                                                            
+amazon.aws.aws_secret                             Look up secrets stored in AWS Secrets Manager                                                             
+amazon.aws.aws_service_ip_ranges                  Look up the IP ranges for services provided in AWS such as EC2 and S3                                     
+amazon.aws.aws_ssm                                Get the value for a SSM parameter or all parameters under a path                                          
+awx.awx.tower_api                                 Search the API for objects                                                                                
+awx.awx.tower_schedule_rrule                      Generate an rrule string which can be used for Tower Schedules                                            
+community.general.cartesian                       returns the cartesian product of lists                                                                    
+community.general.chef_databag                    fetches data from a Chef Databag                                                                          
+community.general.consul_kv                       Fetch metadata from a Consul key value store                                                              
+community.general.credstash                       retrieve secrets from Credstash on AWS                                                                    
+community.general.cyberarkpassword                get secrets from CyberArk AIM                                                                             
+community.general.dig                             query DNS using the dnspython library                                                                     
+community.general.dnstxt                          query a domain(s)'s DNS txt fields                                                                        
+community.general.dsv                             Get secrets from Thycotic DevOps Secrets Vault                                                            
+community.general.etcd                            get info from an etcd server                                                                              
+community.general.etcd3                           Get key values from etcd3 server                                                                          
+community.general.filetree                        recursively match all files in a directory tree                                                           
+community.general.flattened                       return single list completely flattened                                                                   
+community.general.gcp_storage_file                Return GC Storage content                                                                                 
+community.general.hashi_vault                     Retrieve secrets from HashiCorp's vault                                                                   
+community.general.hiera                           get info from hiera data                                                                                  
+community.general.keyring                         grab secrets from the OS keyring                                                                          
+community.general.lastpass                        fetch data from lastpass                                                                                  
+community.general.lmdb_kv                         fetch data from LMDB                                                                                      
+community.general.manifold                        get credentials from Manifold.co                                                                          
+community.general.nios                            Query Infoblox NIOS objects                                                                               
+community.general.nios_next_ip                    Return the next available IP address for a network                                                        
+community.general.nios_next_network               Return the next available network range for a network-container                                           
+community.general.onepassword                     fetch field values from 1Password                                                                         
+community.general.onepassword_raw                 fetch an entire item from 1Password                                                                       
+community.general.passwordstore                   manage passwords with passwordstore.org's pass utility                                                    
+community.general.redis                           fetch data from Redis                                                                                     
+community.general.shelvefile                      read keys from Python shelve file                                                                         
+community.general.tss                             Get secrets from Thycotic Secret Server                                                                   
+community.grafana.grafana_dashboard               list or search grafana dashboards                                                                         
+community.kubernetes.k8s                          Query the K8s API                                                                                         
+community.mongodb.mongodb                         lookup info from MongoDB                                                                                  
+community.network.avi                             Look up ``Avi`` objects                                                                                   
+community.rabbitmq.rabbitmq                       Retrieve messages from an AMQP/AMQPS RabbitMQ queue                                                       
+community.skydive.skydive                         Query Skydive objects                                                                                     
+community.windows.laps_password                   Retrieves the LAPS password for a server                                                                  
+config                                            Lookup current Ansible configuration values                                                               
+csvfile                                           read data from a TSV or CSV file                                                                          
+cyberark.conjur.conjur_variable                   Fetch credentials from CyberArk Conjur                                                                    
+dict                                              returns key/value pair items from dictionaries                                                            
+env                                               Read the value of environment variables                                                                   
+f5networks.f5_modules.bigiq_license               Return random license from list                                                                           
+f5networks.f5_modules.license_hopper              Return random license from list                                                                           
+file                                              read file contents                                                                                        
+fileglob                                          list files matching a pattern                                                                             
+first_found                                       return first file found from list                                                                         
+indexed_items                                     rewrites lists to return 'indexed items'                                                                  
+ini                                               read data from a ini file                                                                                 
+inventory_hostnames                               list of inventory hosts matching a host pattern                                                           
+items                                             list of items                                                                                             
+lines                                             read lines from command                                                                                   
+list                                              simply returns what it is given                                                                           
+nested                                            composes a list with nested elements of other lists                                                       
+netapp_eseries.santricity.santricity_host         Collects host information                                                                                 
+netapp_eseries.santricity.santricity_host_detail  Expands the host information from santricity_host lookup                                                  
+netapp_eseries.santricity.santricity_lun_mapping  UNDOCUMENTED                                                                                              
+netapp_eseries.santricity.santricity_storage_pool Storage pool information                                                                                  
+netapp_eseries.santricity.santricity_volume       UNDOCUMENTED                                                                                              
+netbox.netbox.nb_lookup                           Queries and returns elements from Netbox                                                                  
+password                                          retrieve or generate a random password, stored in a file                                                  
+pipe                                              read output from a command                                                                                
+random_choice                                     return random element from list                                                                           
+sequence                                          generate a list based on a number sequence                                                                
+subelements                                       traverse nested key from a list of dictionaries                                                           
+template                                          retrieve contents of file after templating with Jinja2                                                    
+together                                          merges lists into synchronized list                                                                       
+unvault                                           read vaulted file(s) contents                                                                             
+url                                               return contents from URL                                                                                  
+varnames                                          Lookup matching variable names                                                                            
+vars                                              Lookup templated value of variables                                                                       
+wti.remote.cpm_metering                           Get Power and Current data from WTI OOB/Combo and PDU devices                                             
+wti.remote.cpm_status                             Get status and parameters from WTI OOB and PDU devices       
+
